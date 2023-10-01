@@ -5,28 +5,36 @@ const {
   validateBody,
   isValidId,
   validateFavorite,
+  authenticate,
 } = require("../../middlewares");
-const { schemas } = require("../../models");
+const { schemasContact } = require("../../models");
 
-router.get("/", ctrl.getContacts);
+router.get("/", authenticate, ctrl.getContacts);
 
-router.get("/:id", isValidId, ctrl.getContactsById);
+router.get("/:id", authenticate, isValidId, ctrl.getContactsById);
 
-router.post("/", validateBody(schemas.addSchema), ctrl.addContact);
+router.post(
+  "/",
+  authenticate,
+  validateBody(schemasContact.addSchema),
+  ctrl.addContact
+);
 
-router.delete("/:id", isValidId, ctrl.deleteContact);
+router.delete("/:id", authenticate, isValidId, ctrl.deleteContact);
 
 router.put(
   "/:id",
+  authenticate,
   isValidId,
-  validateBody(schemas.addSchema),
+  validateBody(schemasContact.addSchema),
   ctrl.updateContact
 );
 
 router.patch(
   "/:id/favorite",
+  authenticate,
   isValidId,
-  validateFavorite(schemas.updateFavoriteSchema),
+  validateFavorite(schemasContact.updateFavoriteSchema),
   ctrl.updateFavorite
 );
 
