@@ -6,11 +6,8 @@ const { HttpError, ctrlWrapper } = require("../helpers");
 const { SECRET_KEY } = process.env;
 const fs = require("fs").promises;
 const path = require("path");
-// const ShortUniqueId = require("short-unique-id");
-// const uid = new ShortUniqueId();
 const Jimp = require("jimp");
-// const publicAvatarDir = path.resolve("public");
-const avatarsDir = path.join(__dirname, "../", "public", "avatars");
+const avatarsDir = path.join(__dirname, "../", "public");
 
 const register = async (req, res) => {
   const { email, password } = req.body;
@@ -113,8 +110,9 @@ const updateAvatar = async (req, res) => {
     throw HttpError(401, "Not authorized");
   }
   const { path: tempUpload, filename } = req.file;
-  const avatarURL = `${filename}`;
+  const avatarURL = path.join("avatars", `${filename}`);
   const result = path.join(avatarsDir, avatarURL);
+
   const image = await Jimp.read(req.file.path);
 
   await image
