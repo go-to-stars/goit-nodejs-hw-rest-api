@@ -107,7 +107,7 @@ const updateAvatar = async (req, res) => {
   const { _id } = req.user;
 
   if (!req.file) {
-    throw HttpError(401, "Not authorized");
+    throw HttpError(401, "File is missing");
   }
   const { path: tempUpload, filename } = req.file;
   const avatarURL = path.join("avatars", `${filename}`);
