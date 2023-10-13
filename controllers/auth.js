@@ -7,16 +7,21 @@ const { SECRET_KEY } = process.env;
 const fs = require("fs").promises;
 const path = require("path");
 const Jimp = require("jimp");
+const { v4: uuidv4 } = require("uuid");
 const avatarsDir = path.join(__dirname, "../", "public");
+const sendEmail = require("../services/emailService");
+require("dotenv").config();
 
 const register = async (req, res) => {
   const { email, password } = req.body;
+
   const user = await User.findOne({ email });
 
   if (user) {
     throw HttpError(409, "Email in use");
   }
 
+  const verificationToken = uuidv4();
   const hashPassword = await bcrypt.hash(password, 12);
   const avatarURL = gravatar.url(email);
 
@@ -24,16 +29,30 @@ const register = async (req, res) => {
     ...req.body,
     password: hashPassword,
     avatarURL,
+    verificationToken,
   });
 
   if (!response) {
     throw HttpError(404, "Not found");
   }
 
+  const htmlText = `<a target="_blank" href="http://localhost:3000/users/verify/${verificationToken}" style="display: block; margin: 20px auto; padding: 6px 20px; color:#fff; font-size:18px; background-color: #4056b4; text-align: center; text-decoration: none; border: 1px solid #4056b4; border-radius: 10px;">Click to confirm email</a>`;
+
+  const emailOptions = {
+    from: process.env.POST_AUTH_USER,
+    to: email,
+    subject: "Email confirmation",
+    html: htmlText,
+  };
+
+  sendEmail(emailOptions);
+
   res.status(201).json({
     user: {
       email: response.email,
       subscription: response.subscription,
+      avatarURL: response.avatarURL,
+      verificationToken: response.verificationToken,
     },
   });
 };
@@ -42,8 +61,8 @@ const login = async (req, res) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email });
 
-  if (!user) {
-    throw HttpError(401, "Email or password is wrong");
+  if (!user || !user.verify) {
+    throw HttpError(401, "Email is wrong or not verified");
   }
 
   const passwordCompare = await bcrypt.compare(password, user.password);
@@ -141,6 +160,57 @@ const updateAvatar = async (req, res) => {
   });
 };
 
+const verificationToken = async (req, res) => {
+  const { verificationToken } = req.params;
+
+  const user = await User.findOne({
+    verificationToken: verificationToken,
+  });
+
+  if (!user) {
+    throw HttpError(404, "User not found");
+  }
+
+  await User.findByIdAndUpdate(user._id, {
+    verificationToken: null,
+    verify: true,
+  });
+
+  res.status(200).json({
+    message: "Verification successful",
+  });
+};
+
+const updateVerification = async (req, res, next) => {
+  const { email } = req.body;
+
+  const user = await User.findOne({ email });
+
+  if (!user || user.verificationToken === undefined) {
+    throw HttpError(404, "User not found");
+  }
+  const verificationToken = user.verificationToken;
+
+  if (user.verificationToken === null) {
+    throw HttpError(400, "Verification has already been passed");
+  }
+
+  const htmlText = `<a target="_blank" href="http://localhost:3000/users/verify/${verificationToken}" style="display: block; margin: 20px auto; padding: 6px 20px; color:#fff; font-size:18px; background-color: #4056b4; text-align: center; text-decoration: none; border: 1px solid #4056b4; border-radius: 10px;">Click to confirm email</a>`;
+
+  const emailOptions = {
+    from: process.env.POST_AUTH_USER,
+    to: email,
+    subject: "Email confirmation",
+    html: htmlText,
+  };
+
+  sendEmail(emailOptions);
+
+  res.status(200).json({
+    message: "Verification email sent",
+  });
+};
+
 module.exports = {
   register: ctrlWrapper(register),
   login: ctrlWrapper(login),
@@ -148,4 +218,6 @@ module.exports = {
   logout: ctrlWrapper(logout),
   updateSubskription: ctrlWrapper(updateSubskription),
   updateAvatar: ctrlWrapper(updateAvatar),
+  verificationToken: ctrlWrapper(verificationToken),
+  updateVerification: ctrlWrapper(updateVerification),
 };
